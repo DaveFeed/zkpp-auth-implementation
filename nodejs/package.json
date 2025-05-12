@@ -1,0 +1,17 @@
+{
+  "name": "node",
+  "version": "1.0.0",
+  "description": "",
+  "main": "demo.js",
+  "scripts": {
+    "test": "node demo.js && echo 'All tests passed successfully!' || { echo 'There was an error in tests'; exit $?; }"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "bn.js": "^5.2.2",
+    "node-forge": "^1.3.1"
+  }
+}
