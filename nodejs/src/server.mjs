@@ -44,7 +44,7 @@ class Server {
     }
     return 1;
   }
-};
+}
 
 export { Server };
 export default Server;

@@ -1,4 +1,10 @@
-import { constants, kdf, modPow, randomBigInt, generateSalt } from "./helpers.mjs";
+import {
+  constants,
+  kdf,
+  modPow,
+  randomBigInt,
+  generateSalt,
+} from "./helpers.mjs";
 const { g, p, q } = constants;
 
 class Client {
@@ -9,7 +15,7 @@ class Client {
 
   // Step 1: Registration
   register(password) {
-    if(!password) {
+    if (!password) {
       throw new Error("Password is required for registration.");
     }
 
