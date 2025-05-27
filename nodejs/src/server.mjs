@@ -1,10 +1,10 @@
-import { randomBigInt, modPow, constants } from "./helpers.mjs";
-const { g, p, q } = constants;
+import { randomBigInt, modPow, constants, hash } from "./helpers.mjs";
+const { g, p, q, k } = constants;
 
 class Server {
   constructor() {
     this.clients = {};
-    this.session = {};
+    this.sessions = {};
   }
 
   // Step 2: Store verifier and salt (optional)
@@ -19,30 +19,24 @@ class Server {
     this.clients[username].salt = salt;
   }
 
-  getSalt(username) {
-    return this.clients[username]?.salt;
-  }
-
   // Step 4: Issue challenge
   challenge(username, A) {
-    this.session[username] ??= {};
-    this.session[username].A = A;
-    this.session[username].c = randomBigInt(q); // [0, q)
-    return this.session[username].c;
+    this.sessions[username] ??= {};
+    this.sessions[username].A = A;
+    this.sessions[username].b = randomBigInt(q); // [0, q)
+    this.sessions[username].B = k*this.clients[username].V + // todo:: check if modPow is needed here
+      modPow(g, this.sessions[username].b, p); // B = k*V + g^b
+    return { salt: this.clients[username]?.salt, B: this.sessions[username].B };
   }
 
   // Step 6: Verify response
-  verify(username, s) {
-    // g^s ?= A * V^c mod p
-    const lhs = modPow(g, s, p);
-    const rhs =
-      (this.session[username].A *
-        modPow(this.clients[username].V, this.session[username].c, p)) %
-      p;
-    if (lhs === rhs) {
-      return 0;
-    }
-    return 1;
+  generateKey(username) {
+    const u = hash(this.sessions[username].A, this.sessions[username].B); // u = H(A, B)
+
+    const Sc = modPow(this.sessions[username].A * modPow(this.clients[username].V, u, p), this.sessions[username].b, p); // Sc = A * V^b mod p
+    const Kc = hash(Sc); // Kc = H(Sc)
+
+    return Kc;
   }
 }
 

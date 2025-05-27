@@ -70,26 +70,24 @@ await new Promise((resolve) => {
     resolve();
   });
 });
-const salt = server.getSalt(client.username);
+const A = client.commit();
+const { B, salt } = server.challenge(client.username, A);
+log(`A: ${A}`);
+log(`B: ${B}`);
 
-const commitment = client.commit();
-const challenge = server.challenge(client.username, commitment);
-log(`Commitment: ${commitment}`);
-log(`Challenge: ${challenge}`);
+const Kc = client.generateKey(password, salt, B);
+const Ks = server.generateKey(client.username);
 
-const response = client.response(password, salt, challenge);
-const statusCode = server.verify(client.username, response);
-
-log(`Response: ${response}`);
-log(`Status Code: ${statusCode}`);
+log(`Kc: ${Kc}`);
+log(`Ks: ${Ks}`);
 
 transport.close();
 if (process.env?.npm_lifecycle_event !== "test") {
-  if (statusCode === 0) {
+  if (Ks === 0) {
     console.log("✅ Authentication successful.");
   } else {
     console.log("❌ Authentication failed.");
   }
 } else {
-  process.exit(statusCode);
+  process.exit(Ks);
 }

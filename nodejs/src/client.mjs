@@ -4,8 +4,9 @@ import {
   modPow,
   randomBigInt,
   generateSalt,
+  hash,
 } from "./helpers.mjs";
-const { g, p, q } = constants;
+const { g, p, q, k } = constants;
 
 class Client {
   constructor(username) {
@@ -27,18 +28,23 @@ class Client {
 
   // Step 3: Commitment
   commit() {
-    this.session.r = randomBigInt(q);
-    this.session.A = modPow(g, this.session.r, p); // A = g^r mod p
+    this.session.a = randomBigInt(q);
+    this.session.A = modPow(g, this.session.a, p); // A = g^a mod p
     return this.session.A;
   }
 
   // Step 5: Response
-  response(password, salt, c) {
+  generateKey(password, salt, B) {
     // Compute x from the password and salt
     const x = kdf(password, salt); // x = KDF(password, salt)
-    // s = r + c * x mod q
-    const s = (this.session.r + c * x) % q;
-    return s;
+
+    const u = hash(this.session.A, B); // u = H(A, B)
+    // s = a + c * x mod q
+    // const s = (this.session.a + c * x) % q;
+    const Sc = modPow((B - k * modPow(g, x, p)), this.session.a + u * x, p); // Sc = (B - k * g^x mod p)^(a + u*x) mod p
+    const Kc = hash(Sc);
+
+    return Kc; // Kc = H(Sc)
   }
 }
 

@@ -19,6 +19,7 @@ const p_hex = `
 const p = BigInt("0x" + p_hex);
 const g = 2n;
 const q = (p - 1n) / 2n;
+const k = 3n;
 
 function randomBigInt(max) {
   const byteLength = (max.toString(2).length + 7) >> 3;
@@ -59,10 +60,27 @@ function kdf(password, salt, iterations = 100_000, dklen = 32, digest = "sha256"
   return BigInt("0x" + hash.toString("hex"));
 }
 
+function hash(...data) {
+  const hash = createHash("sha256");
+  for (const item of data) {
+    if (typeof item === "bigint") {
+      // Convert BigInt to Buffer for hashing
+      let hex = item.toString(16);
+      if (hex.length % 2 !== 0) hex = "0" + hex; // Ensure even length
+      const buf = Buffer.from(hex, "hex");
+      hash.update(buf);
+    } else {
+      hash.update(item);
+    }
+  }
+  return BigInt("0x" + hash.digest("hex"));
+}
+
 const constants = {
   p,
   g,
   q,
+  k,
 };
 
 export {
@@ -72,4 +90,5 @@ export {
   printBigInt,
   generateSalt,
   kdf,
+  hash,
 };
