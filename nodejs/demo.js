@@ -32,8 +32,8 @@ transport.close();
 const A = client.commit();
 const { B, salt } = server.challenge(client.username, A);
 
-const Kc = client.generateKey(password, salt, B);
-const Ks = server.generateKey(client.username);
+client.calculateKey(password, salt, B);
+server.calculateKey(client.username);
 
 // Cross validate the keys
 const clientVerificationRequest = client.hello();

@@ -1,4 +1,11 @@
-import { randomBigInt, modPow, constants, hash, log, bigIntToStringShort } from "./helpers.mjs";
+import {
+  randomBigInt,
+  modPow,
+  constants,
+  hash,
+  log,
+  bigIntToStringShort,
+} from "./helpers.mjs";
 const { g, p, q, k } = constants;
 
 class Server {
@@ -7,7 +14,6 @@ class Server {
     this.sessions = {};
   }
 
-  // Step 2: Store verifier and salt (optional)
   storeData(username, { V, salt }) {
     if (this.clients[username]) {
       console.log(`User ${username} already exists.`);
@@ -19,31 +25,44 @@ class Server {
     this.clients[username].salt = salt;
   }
 
-  // Step 4: Issue challenge
   challenge(username, A) {
+    if (!this.clients[username]) {
+      throw new Error("User not found: " + username);
+    }
+
     this.sessions[username] ??= {};
     this.sessions[username].A = A;
     this.sessions[username].b = randomBigInt(q); // [0, q)
-    log(`Server: Generated b = ${bigIntToStringShort(this.sessions[username].b)}`);
+    log(
+      `Server: Generated b = ${bigIntToStringShort(this.sessions[username].b)}`
+    );
 
-    this.sessions[username].B = k*this.clients[username].V +
-      modPow(g, this.sessions[username].b, p); // B = kV + g^b
-    log(`Server: Generated B = ${bigIntToStringShort(this.sessions[username].B)}`);
+    this.sessions[username].B =
+      k * this.clients[username].V + modPow(g, this.sessions[username].b, p); // B = kV + g^b
+    log(
+      `Server: Generated B = ${bigIntToStringShort(this.sessions[username].B)}`
+    );
     return { salt: this.clients[username]?.salt, B: this.sessions[username].B };
   }
 
-  // Step 6: Verify response
-  generateKey(username) {
-    const u = hash(this.sessions[username].A, this.sessions[username].B); // u = H(A, B)
+  calculateKey(username) {
+    if (!this.sessions[username]) {
+      throw new Error("Session not found for user: " + username);
+    }
+    const session = this.sessions[username];
+
+    const u = hash(session.A, session.B); // u = H(A, B)
     log(`Server: Computed u = ${u}`);
 
-    const Ss = modPow(this.sessions[username].A * modPow(this.clients[username].V, u, p), this.sessions[username].b, p); // Ss = A * V^b mod p
+    const Ss = modPow(
+      session.A * modPow(this.clients[username].V, u, p),
+      session.b,
+      p
+    ); // Ss = (A * V^u mod p)^b mod p
     log(`Server: Computed Sc = ${bigIntToStringShort(Ss)}`);
     const Ks = hash(Ss); // Ks = H(Ss)
     log(`Server: Computed Kc = ${Ks}`);
-    this.sessions[username].Ks = Ks; // Store Ks for later in signing
-
-    return Ks;
+    session.Ks = Ks; // Store Ks for later in signing
   }
 
   hello(username) {
@@ -54,11 +73,10 @@ class Server {
     if (!this.sessions[username]) {
       throw new Error("Session not found for user: " + username);
     }
-
-    const signature = hash(this.sessions[username].A, this.sessions[username].Ks, message);
+    const session = this.sessions[username];
     return {
       message,
-      signature: signature,
+      signature: hash(session.A, session.Ks, message),
     };
   }
 
@@ -66,12 +84,16 @@ class Server {
     if (!this.sessions[username]) {
       throw new Error("Session not found for user: " + username);
     }
-
-    const { message, signature } = (payload || {});
-    const expectedSignature = hash(hash(username), this.sessions[username].B, this.sessions[username].Ks, message);
+    const { message, signature } = payload || {};
+    const expectedSignature = hash(
+      hash(username),
+      this.sessions[username].B,
+      this.sessions[username].Ks,
+      message
+    );
 
     if (signature === expectedSignature) {
-      log(`Server: Signature verified for message:: ${message}`);
+      log(`Server: Signature verified for message: ${message}`);
       return true;
     } else {
       log(`Server: Signature verification failed for message: ${message}`);
