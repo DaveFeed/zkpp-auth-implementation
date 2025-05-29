@@ -45,11 +45,6 @@ function modPow(base, exponent, modulus) {
   return result;
 }
 
-// Print BigInt as hex
-function printBigInt(label, val) {
-  console.log(`${label} = 0x${val.toString(16)}`);
-}
-
 function generateSalt() {
   const salt = randomBytes(16).toString("hex");
   return salt;
@@ -76,6 +71,20 @@ function hash(...data) {
   return BigInt("0x" + hash.digest("hex"));
 }
 
+function log(message) {
+  if (process.env?.npm_lifecycle_event === "test") {
+    return;
+  }
+
+  console.log(message);
+}
+
+function bigIntToStringShort(bigint, size = 8) {
+  const str = bigint.toString();
+  if (str.length <= size * 2 + 3) return `Ox${str}`;
+  return `${str.slice(0, size)}...${str.slice(-size)}`;
+}
+
 const constants = {
   p,
   g,
@@ -87,8 +96,9 @@ export {
   constants,
   randomBigInt,
   modPow,
-  printBigInt,
   generateSalt,
   kdf,
   hash,
+  log,
+  bigIntToStringShort,
 };

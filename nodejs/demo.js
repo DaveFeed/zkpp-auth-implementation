@@ -1,52 +1,11 @@
-/*
- * The protocol is based on the Diffie-Hellman key exchange and uses a
- * password-based key derivation function (PBKDF) to derive a secret value
- * from the password and a random salt. The verifier is stored on the server,
- * and the client computes a commitment and response to authenticate itself.
- *
- * The protocol is secure against offline dictionary attacks and does not
- * require the server to store the password in plaintext. The use of a random
- * salt ensures that the same password will yield different verifiers for
- * different users, making it difficult for an attacker to use precomputed
- * tables (rainbow tables) to crack the password.
- *
- * Terms used:
- *   - p: large prime number
- *   - g: generator of the group
- *   - x: secret value (password)
- *   - V: verifier (g^x mod p)
- *   - A: commitment (g^r mod p)
- *   - r: random value (client secret)
- *   - s: response (r + c * x mod q)
- *   - c: challenge (random value)
- *   - q: safe prime (p-1)/2
- *   - kdf: key derivation function
- */
 import Client from "./src/client.mjs";
+import { log } from "./src/helpers.mjs";
 import Server from "./src/server.mjs";
 import readline from "readline";
 const transport = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
-
-function log(message) {
-  if (process.env?.npm_lifecycle_event === "test") {
-    return;
-  }
-
-  console.log(message);
-}
-
-/*
- * Protocol Steps:
- * 1. Client generates a random salt and computes the verifier "V" from the password and salt (x).
- * 2. Server stores the salt and verifier "V".
- * 3. Client generates a random value "r" and computes the commitment "A".
- * 4. Server issues a challenge "c".
- * 5. Client computes the response "s" using the challenge "c" and the secret value "x".
- * 6. Server verifies the response by checking if g^s == A * V^c mod p.
- */
 
 const server = new Server();
 const client = new Client("username");
@@ -60,8 +19,6 @@ await new Promise((resolve) => {
 });
 
 server.storeData(client.username, client.register(createdPassword));
-log(`Verifier: ${server.clients[client.username].V}`);
-log(`Salt: ${server.clients[client.username].salt}`);
 
 let password = "";
 await new Promise((resolve) => {
@@ -70,24 +27,30 @@ await new Promise((resolve) => {
     resolve();
   });
 });
+transport.close();
+
 const A = client.commit();
 const { B, salt } = server.challenge(client.username, A);
-log(`A: ${A}`);
-log(`B: ${B}`);
 
 const Kc = client.generateKey(password, salt, B);
 const Ks = server.generateKey(client.username);
 
-log(`Kc: ${Kc}`);
-log(`Ks: ${Ks}`);
+// Cross validate the keys
+const clientVerificationRequest = client.hello();
+const clientVerificationResponse = server.verify(client.username, clientVerificationRequest);
 
-transport.close();
-if (process.env?.npm_lifecycle_event !== "test") {
-  if (Ks === 0) {
-    console.log("✅ Authentication successful.");
-  } else {
-    console.log("❌ Authentication failed.");
-  }
-} else {
-  process.exit(Ks);
+if(!clientVerificationResponse) {
+  log("❌ Client verification failed.");
+  process.exit(1);
 }
+
+const serverVerificationRequest = server.hello(client.username);
+const serverVerificationResponse = client.verify(serverVerificationRequest);
+
+if(!serverVerificationResponse) {
+  log("❌ Server verification failed.");
+  process.exit(1);
+}
+
+log("✅ Client and server verification successful.");
+process.exit(0);

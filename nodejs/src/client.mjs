@@ -5,6 +5,8 @@ import {
   randomBigInt,
   generateSalt,
   hash,
+  log,
+  bigIntToStringShort,
 } from "./helpers.mjs";
 const { g, p, q, k } = constants;
 
@@ -21,15 +23,19 @@ class Client {
     }
 
     const salt = generateSalt();
+    log(`Client: Generated salt = ${salt}`);
     const x = kdf(password, salt); // x = KDF(password, salt)
     const V = modPow(g, x, p); // V = g^x mod p
+    log(`Client: Generated V = ${bigIntToStringShort(V)}`);
     return { V, salt };
   }
 
   // Step 3: Commitment
   commit() {
     this.session.a = randomBigInt(q);
+    log(`Client: Generated a = ${bigIntToStringShort(this.session.a)}`);
     this.session.A = modPow(g, this.session.a, p); // A = g^a mod p
+    log(`Client: Generated A = ${bigIntToStringShort(this.session.A)}`);
     return this.session.A;
   }
 
@@ -37,14 +43,49 @@ class Client {
   generateKey(password, salt, B) {
     // Compute x from the password and salt
     const x = kdf(password, salt); // x = KDF(password, salt)
+    log(`Client: Computed x = ${bigIntToStringShort(x)}`);
 
     const u = hash(this.session.A, B); // u = H(A, B)
+    log(`Client: Computed u = ${u}`);
     // s = a + c * x mod q
     // const s = (this.session.a + c * x) % q;
     const Sc = modPow((B - k * modPow(g, x, p)), this.session.a + u * x, p); // Sc = (B - k * g^x mod p)^(a + u*x) mod p
+    log(`Client: Computed Sc = ${bigIntToStringShort(Sc)}`);
     const Kc = hash(Sc);
+    log(`Client: Computed Kc = ${Kc}`);
 
+    this.session.B = B; // Store B for later in signing
+    this.session.Kc = Kc;
     return Kc; // Kc = H(Sc)
+  }
+
+  hello() {
+    return this.sign("Hello!");
+  }
+
+  sign(message) {
+    if (!this.session.Kc) {
+      throw new Error("Key not generated. Please complete the authentication process first.");
+    }
+    const signature = hash(hash(this.username), this.session.B, this.session.Kc, message);
+    return {
+      message,
+      signature: signature,
+    };
+  }
+
+  verify(payload) {
+    const { message, signature } = (payload || {});
+
+    const expectedSignature = hash(this.session.A, this.session.Kc, message);
+
+    if (signature === expectedSignature) {
+      log(`Client: Signature verified for message: ${message}`);
+      return true;
+    } else {
+      log(`Client: Signature verification failed for message: ${message}`);
+      return false;
+    }
   }
 }
 
