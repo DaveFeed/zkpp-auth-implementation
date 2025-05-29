@@ -19,7 +19,7 @@ const p_hex = `
 const p = BigInt("0x" + p_hex);
 const g = 2n;
 const q = (p - 1n) / 2n;
-const k = 3n;
+const k = hash(p, g); // k = H(p, g)
 
 function randomBigInt(max) {
   const byteLength = (max.toString(2).length + 7) >> 3;
