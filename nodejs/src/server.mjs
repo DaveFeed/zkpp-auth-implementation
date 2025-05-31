@@ -51,14 +51,11 @@ class Server {
     }
     const session = this.sessions[username];
 
-    const u = hash(session.A, session.B); // u = H(A, B)
-    log(`Server: Computed u = ${u}`);
-
     const Ss = modPow(
-      session.A * modPow(this.clients[username].V, u, p),
+      session.A * this.clients[username].V,
       session.b,
       p
-    ); // Ss = (A * V^u mod p)^b mod p
+    ); // Ss = (A * V)^b mod p
     log(`Server: Computed Sc = ${bigIntToStringShort(Ss)}`);
     const Ks = hash(Ss); // Ks = H(Ss)
     log(`Server: Computed Kc = ${Ks}`);

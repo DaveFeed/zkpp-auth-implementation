@@ -42,11 +42,7 @@ class Client {
     const x = kdf(password, salt); // x = KDF(password, salt)
     log(`Client: Computed x = ${bigIntToStringShort(x)}`);
 
-    const u = hash(this.session.A, B); // u = H(A, B)
-    log(`Client: Computed u = ${u}`);
-    // s = a + c * x mod q
-    // const s = (this.session.a + c * x) % q;
-    const Sc = modPow(B - k * modPow(g, x, p), this.session.a + u * x, p); // Sc = (B - k * g^x mod p)^(a + u*x) mod p
+    const Sc = modPow(B - k * modPow(g, x, p), this.session.a + x, p); // Sc = (B - k * g^x mod p)^(a + x) mod p
     log(`Client: Computed Sc = ${bigIntToStringShort(Sc)}`);
     const Kc = hash(Sc); // Kc = H(Sc)
     log(`Client: Computed Kc = ${Kc}`);
